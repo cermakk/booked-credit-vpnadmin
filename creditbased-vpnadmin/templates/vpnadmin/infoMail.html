@@ -1,0 +1,18 @@
+{% load i18n %}
+
+{% blocktrans with cinfo.user.get_full_name as name and cinfo.phone as phone %}
+Hi {{ name }} ({{ phone }}),
+I am sending a report about your phone service state:
+{% endblocktrans %}
+
+{% for k, v in invoice.items %}
+{{ k }}: {{ v }} CZK
+{% endfor %}
+
+{% blocktrans %}
+Price for this month is {{ price }} CZK. Your current credit is {{ state }}.
+
+Operator invoice can be found here: http://{{ domain }}{{ billURL }}
+
+yours sincerely {{ domain }} robot.
+{% endblocktrans %}
