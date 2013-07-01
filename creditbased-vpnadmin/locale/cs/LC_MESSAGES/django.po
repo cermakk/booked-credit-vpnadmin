@@ -1,0 +1,111 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR vencax77@gmail.com, 2012.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2013-06-30 09:44+0200\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2\n"
+
+#: models.py:14
+msgid "free minutes"
+msgstr "volné minuty"
+
+#: models.py:24
+msgid "phone"
+msgstr "telefon"
+
+#: signals.py:18
+msgid "Phone services credit"
+msgstr "přefakturace telefonních služeb"
+
+#: views.py:82
+#, python-format
+msgid ""
+"%(count)i records processed OK.\n"
+"Bill is <a href=\"%(billurl)s\">here</a>"
+msgstr ""
+"%(count)i záznamů v pořádku zpracováno.\n"
+"Faktura od operátora je <a href=\"%(billurl)s\">zde</a>"
+
+#: bill_processing/data_processing.py:92
+msgid "phone service info"
+msgstr "infomace o čerpání telefonních služeb"
+
+#: templates/vpnadmin/dataProcessed.html:30
+msgid "subscriber"
+msgstr "účastník"
+
+#: templates/vpnadmin/dataProcessed.html:31
+msgid "number"
+msgstr "číslo"
+
+#: templates/vpnadmin/dataProcessed.html:32
+msgid "time inside VPN"
+msgstr "čas ve VPN"
+
+#: templates/vpnadmin/dataProcessed.html:33
+msgid "time outside VPN"
+msgstr "čas mimo VPN"
+
+#: templates/vpnadmin/dataProcessed.html:34
+msgid "extraMinutes"
+msgstr "mimo volné min."
+
+#: templates/vpnadmin/dataProcessed.html:35
+msgid "sms count"
+msgstr "počet SMS"
+
+#: templates/vpnadmin/dataProcessed.html:36
+msgid "sms in vpn"
+msgstr "SMS v rámci VPN"
+
+#: templates/vpnadmin/dataProcessed.html:37
+msgid "extraSMS"
+msgstr "mimo volné SMS"
+
+#: templates/vpnadmin/dataProcessed.html:38
+msgid "extras"
+msgstr "extra služby"
+
+#: templates/vpnadmin/dataProcessed.html:64
+msgid "Expected invoice price"
+msgstr "Předpokládaná výše faktury"
+
+#: templates/vpnadmin/infoMail.html:3
+#, python-format
+msgid ""
+"\n"
+"Hi %(name)s (%(phone)s),\n"
+"I am sending a report about your phone service state:\n"
+msgstr ""
+"\n"
+"Zdravíčko %(name)s (%(phone)s),\n"
+"posílám info o stavu čerpání telefonních služeb.\n"
+
+#: templates/vpnadmin/infoMail.html:12
+#, python-format
+msgid ""
+"\n"
+"Price for this month is %(price)s CZK. Your current credit is %(state)s.\n"
+"\n"
+"Operator invoice can be found here: http://%(domain)s%(billURL)s\n"
+"\n"
+"yours sincerely %(domain)s robot.\n"
+msgstr ""
+"\n"
+"Tento měsíc čerpáte za %(price)s. Aktuální kredit máte %(state)s.\n"
+"\n"
+"Fakturu od operátora najdete zde: http://%(domain)s%(billURL)s\n"
+"\n"
+"s pozdravem %(domain)s robot.\n"
