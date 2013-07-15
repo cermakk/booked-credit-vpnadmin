@@ -13,56 +13,38 @@ table { border: 1px solid black; font-size: 12px; }
 {% endblock %}
 
 {% block content %}
-{% if message %}{{ message|safe }}
-{% else %}
-<p>
-Faktura je <a href="{{ billurl }}">tady</a>.
-</p>
-
-<p>
-Vyparsovane info:
-</p>
-
-<form action="" method="post" enctype="multipart/form-data">
-{% csrf_token %}
 <table>
 <tr>
 	<th>{% trans 'subscriber' %}</th>
 	<th>{% trans 'number' %}</th>
-	<th>{% trans 'time inside VPN' %}</th>
-	<th>{% trans 'time outside VPN' %}</th>
-	<th>{% trans 'extraMinutes' %}</th>
-	<th>{% trans 'sms count' %}</th>
-	<th>{% trans 'sms in vpn' %}</th>
-	<th>{% trans 'extraSMS' %}</th>
-	<th>{% trans 'extras' %}</th>
+	<th>{% trans 'mins allocated' %}</th>
+	<th>{% trans 'call' %}</th>
+	<th>{% trans 'sms' %}</th>
+	<th>{% trans 'mms' %}</th>
+	<th>{% trans 'other' %}</th>
 </tr>
-{% for tel, info in parsed.items %}
+{% for userinfo, charging in data.items %}
 <tr {% if info.4 > 0 %}class="above"{% endif %}>
-	<td>{{ info.3.user.first_name }} {{ info.3.user.last_name }}</td>
-	<td>{{ tel }}</td>
-	<td class="vpn">{{ info.0 }}</td>
-	<td class="paid">{{ info.1 }}</td>
-	<td class="diff">{{ info.4 }}</td>
-	<td class="paid">{{ info.2 }}</td>
-	<td class="vpn">{{ info.7 }}</td>
-	<td class="paid">{{ info.8 }}</td>
-	<td>{{ info.6 }}</td>
+	<td>{{ userinfo.1.user.first_name }} {{ userinfo.1.user.last_name }}</td>
+	<td>{{ userinfo.0.phone }}</td>
+	<td>{{ userinfo.1.bookedcredit }}</td>
+	<td class="paid">{{ charging.call }}</td>
+	<td class="diff">{{ charging.sms }}</td>
+	<td class="paid">{{ charging.mms }}</td>
+	<td>{% for k, v in charging.other.items %}{{ k }}: {{ v }}<br>{% endfor %}</td>
 </tr>
 {% endfor %}
 <tr style="background-color: grey;">
-	<td colspan="2">TOTAL</td>
-	<td>{{ totals.inVPN }} ({{ totals.inVPNMins }} mins)</td>
-	<td>{{ totals.outVPN }} ({{ totals.outVPNMins }} mins)</td>
+	<td colspan="3">TOTAL</td>
+	<td>{{ totals.call }}</td>
 	<td>{{ totals.sms }}</td>
+	<td>{{ totals.mms }}</td>
 	<td>_</td>
-	<td>_</td>
-	<td>_</td>
-	<td>{{ totals.extra }} CZK</td>
 </tr>
 </table>
-<p>{% trans 'Expected invoice price' %}: {{ expectedInvoicePrice }} CZK</p>
+
+<form action="" method="post" enctype="multipart/form-data">
+{% csrf_token %}
 <input type="submit" value="OK">
 </form>
-{% endif %}
 {% endblock %}

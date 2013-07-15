@@ -1,18 +1,21 @@
 
-import os
+# -*- coding: utf-8 -*-
 import datetime
-import StringIO
 
 from django.views.generic.edit import FormView
 from django import forms
-from django.utils.translation import ugettext_lazy as _
-from django.forms.widgets import Textarea
+from django.utils.translation import ugettext_lazy as _, ugettext
 from django.conf import settings
 from django.http import HttpResponseRedirect
 from django.core.urlresolvers import reverse
 from django.views.generic.base import TemplateView
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.utils.decorators import method_decorator
+from invoices.models import CompanyInfo
+from valueladder.models import Thing
+from creditservices.signals import processCredit
+from django.template.loader import render_to_string
+from django.contrib.sites.models import Site
 
 from .bill_processing import data_processing
 from .bill_processing.billparser import TMobileCSVBillParser
@@ -66,22 +69,50 @@ class ProcessBillView(TemplateView):
         return TemplateView.dispatch(self, request, *args, **kwargs)
 
     def get(self, request, *args, **kwargs):
-        parsed = request.session.get(SESSION_KEY)
-        data, expectedInvoicePrice, total = request.session.get(DATA_SK)
+        data, total = request.session.get(DATA_SK)
 
         return self.render_to_response({
-            'parsed': data,
-            'totals': total,
-            'expectedInvoicePrice': expectedInvoicePrice
+            'data': data,
+            'totals': total
         })
 
     def post(self, request, *args, **kwargs):
-        data, expectedInvoicePrice, total = request.session.get(DATA_SK)
-        invoices = data_processing.process_charging(data)
+        data, _ = request.session.get(DATA_SK)
+        day = request.session.get(DAY_SK)
+        
+        invoices = self.process_charging(data, day)
 
-        message = _('''%(count)i records processed OK.
-Bill is <a href="%(billurl)s">here</a>''') % {'count': len(invoices),
-                                              'billurl': billurl}
+        message = _('%(count)i records processed OK.') % {
+            'count': len(invoices)
+        }
         del(request.session[DATA_SK])
-        del(request.session[SESSION_KEY])
+        del(request.session[DAY_SK])
         return self.render_to_response({'message': message})
+    
+    def process_charging(self, chargings, chargeday):
+        """
+        Subtracts credit and generates charging info mails. 
+        """
+        for (cInfo, _), chargeinfo in chargings.items():
+            if cInfo.user_id == settings.OUR_COMPANY_ID:
+                return # do not charge myself
+                
+            price = chargeinfo.pop('totalprice')
+            currency = Thing.objects.get_default()
+            contractor = CompanyInfo.objects.get_our_company_info()
+            details = '\n'.join(['%s:%s' % (k, v) for k, v in chargeinfo.items()])
+            
+            # subtract credit
+            currCredit = processCredit(cInfo, -price, currency, details,
+                                       contractor.bankaccount)
+        
+            # send info mail
+            mailContent = render_to_string('vpnadmin/infoMail.html', {
+                'invoice': chargeinfo,
+                'state': currCredit,
+                'price': price,
+                'cinfo': cInfo,
+                'domain': Site.objects.get_current(),
+            })
+            subject = ugettext('phone service info')
+            cInfo.user.email_user(subject, mailContent)

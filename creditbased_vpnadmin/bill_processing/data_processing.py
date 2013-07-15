@@ -1,14 +1,8 @@
 # -*- coding: utf-8 -*-
-import logging
 import datetime
 from django.conf import settings
-from django.template.loader import render_to_string
-from django.contrib.sites.models import Site
-from django.utils.translation import ugettext, ugettext_lazy as _
 from creditservices.models import CompanyInfo
-from creditservices.signals import processCredit
-from vpnadmin.models import PhoneServiceInfo
-from valueladder.models import Thing
+from creditbased_vpnadmin.models import PhoneServiceInfo
 
 
 PROCESSING_FEE = getattr(settings, 'PROCESSING_FEE', 0)
@@ -18,10 +12,37 @@ class DataProcessingError(Exception):
     pass
 
 
-def calculate_user(cInfo, phoneInfo, parsed):
+def create_service_classes(cInfo, phoneInfo, parsed):
+    volani = 0
+    sms = 0
+    mms = 0
+    other = {}
+    for k, v in parsed.items():
+        if k.startswith(unicode('Volání')):
+            volani += (v['free'].seconds + v['paid'].seconds)
+        elif k.startswith(unicode('SMS')):
+            sms += (v['paid'] + v['free'])
+        elif k.startswith(unicode('MMS')):
+            mms += (v['paid'] + v['free'])
+        else:
+            other[k] = v
+        
+    # mam zakladni tridy a ted je nejak zpracuju
+    return {
+        'call': volani,
+        'sms': sms, 'mms': mms,
+        'other': other
+    }
+    
+def calculate_price(phoneInfo, charging, prices):
     """
-    TODO: calculate how much will given user pay for what.
+    calculate how much will given user pay for what.
     """
+    charging['totalprice'] = (charging['call'] * prices['call']) + \
+        charging['sms'] * prices['sms']
+    
+def item_prices(total):
+    return {'call': 1, 'sms': 1, 'mms': 3}
 
 def calculate_charging(parsed_data):
     """
@@ -30,68 +51,37 @@ def calculate_charging(parsed_data):
     This is data for summary view. If all is right, submit triggers processing.
     """
     data = {}
-#    total = {
-#        'inVPN': datetime.timedelta(),
-#        'outVPN': datetime.timedelta(),
-#        'sms': 0,
-#        'extra': 0
-#    }
-    for num, pinfo in parsed_data.items():
-        try:
-            cInfo = CompanyInfo.objects.get(phone=num)
-            phoneInfo = PhoneServiceInfo.objects.get(user=cInfo.user)
-        except PhoneServiceInfo.DoesNotExist:
-            m = 'Phone service info for %s not exists' % cInfo.user
-            raise DataProcessingError(m)
-        except CompanyInfo.DoesNotExist:
-            raise DataProcessingError('Company (phone %s) not exists' % num)        
+    total = {
+        'call': 0,
+        'mms': 0,
+        'sms': 0,
+    }
+    for num, pinfo in parsed_data.items():        
+        cInfo, phoneInfo = _getInfos(num)
+        charging = create_service_classes(cInfo, phoneInfo, pinfo)
+        data[(cInfo, phoneInfo)] = charging
         
-        data[phoneInfo] = calculate_user(cInfo, phoneInfo, pinfo)
-        
-#        total['inVPN'] += inVPN
-#        total['outVPN'] += outVPN
-#        total['sms'] += nonVPNSMS
-#        total['extra'] += sum(extra.values())
+        total['call'] += charging['call']
+        total['sms'] += charging['sms']
+        total['mms'] += charging['mms']
 
-    total['inVPNMins'] = _convertToMinutes(total['inVPN'])
-    total['outVPNMins'] = _convertToMinutes(total['outVPN'])
+    # TODO: spocitej cenu minuty na zaklade total minutes
+    prices = item_prices(total)
+    for (cInfo, phoneInfo), charging in data.items():
+        calculate_price(phoneInfo, charging, prices)
 
-    expectedInvoicePrice = total['extra'] + 5526
-#    if total['outVPNMins'] > FREE_MINS_COUNT:
-#        expectedInvoicePrice += \
-#            ((total['outVPNMins'] - FREE_MINS_COUNT) * MINUTE_PRICE)
-#    if total['sms'] > FREE_SMS_COUNT:
-#        expectedInvoicePrice += \
-#            ((total['sms'] - FREE_SMS_COUNT) * SMS_PRICE)
+    return data, total
 
-    return data, expectedInvoicePrice, total
-
-
-def process_charging(charging):
-    if cinfo.user_id == settings.OUR_COMPANY_ID:
-        return # do not charge myself
-        
-    price = sum(charging.values())
-    currency = Thing.objects.get_default()
-    contractor = CompanyInfo.objects.get_our_company_info()
-    details = '\n'.join(['%s:%s' % (k, v) for k, v in charging.items()])
-    
-    # subtract credit
-    currCredit = processCredit(cinfo, -price, currency, details,
-                               contractor.bankaccount)
-
-    # send info mail
-    mailContent = render_to_string('vpnadmin/infoMail.html', {
-        'invoice': charging,
-        'state': currCredit,
-        'billURL': billURL,
-        'price': price,
-        'cinfo': cinfo,
-        'domain': Site.objects.get_current(),
-    })
-    subject = ugettext('phone service info')
-    cinfo.user.email_user(subject, mailContent)
-
+def _getInfos(num):
+    try:
+        cInfo = CompanyInfo.objects.get(phone=num)
+        phoneInfo = PhoneServiceInfo.objects.get(user=cInfo.user)
+    except PhoneServiceInfo.DoesNotExist:
+        m = 'Phone service info for %s not exists' % cInfo.user
+        raise DataProcessingError(m)
+    except CompanyInfo.DoesNotExist:
+        raise DataProcessingError('Company (phone %s) not exists' % num)
+    return cInfo, phoneInfo
 
 def _convertToTimeDelta(time):
     parts = time.split(':')
@@ -101,3 +91,13 @@ def _convertToTimeDelta(time):
 
 def _convertToMinutes(time):
     return (time.days * 24 * 60) + (time.seconds / 60)
+
+if __name__ == '__main__':
+    from billparser import TMobileCSVBillParser
+    with open('sumsheet_3673301813.csv', 'r') as f:
+        p = TMobileCSVBillParser(f)
+        
+    chargings = calculate_charging(p.parsed)
+    for ci, charging in chargings.items():
+        print '%s:\n%s' % (ci, charging)
+    
