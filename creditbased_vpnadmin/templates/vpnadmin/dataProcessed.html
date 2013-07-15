@@ -1,0 +1,50 @@
+{% extends "site_base.html" %}
+
+{% load i18n %}
+
+{% block extrahead %}
+<style>
+table { border: 1px solid black; font-size: 12px; }
+.vpn { background: white; }
+.paid { background: #bbb; }
+.diff { background: #aaaacc; }
+.above { border: 1px solid red; background: red; }
+</style>
+{% endblock %}
+
+{% block content %}
+<table>
+<tr>
+	<th>{% trans 'subscriber' %}</th>
+	<th>{% trans 'number' %}</th>
+	<th>{% trans 'mins allocated' %}</th>
+	<th>{% trans 'call' %}</th>
+	<th>{% trans 'sms' %}</th>
+	<th>{% trans 'mms' %}</th>
+	<th>{% trans 'other' %}</th>
+</tr>
+{% for userinfo, charging in data.items %}
+<tr {% if info.4 > 0 %}class="above"{% endif %}>
+	<td>{{ userinfo.1.user.first_name }} {{ userinfo.1.user.last_name }}</td>
+	<td>{{ userinfo.0.phone }}</td>
+	<td>{{ userinfo.1.bookedcredit }}</td>
+	<td class="paid">{{ charging.call }}</td>
+	<td class="diff">{{ charging.sms }}</td>
+	<td class="paid">{{ charging.mms }}</td>
+	<td>{% for k, v in charging.other.items %}{{ k }}: {{ v }}<br>{% endfor %}</td>
+</tr>
+{% endfor %}
+<tr style="background-color: grey;">
+	<td colspan="3">TOTAL</td>
+	<td>{{ totals.call }}</td>
+	<td>{{ totals.sms }}</td>
+	<td>{{ totals.mms }}</td>
+	<td>_</td>
+</tr>
+</table>
+
+<form action="" method="post" enctype="multipart/form-data">
+{% csrf_token %}
+<input type="submit" value="OK">
+</form>
+{% endblock %}
