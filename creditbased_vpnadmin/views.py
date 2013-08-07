@@ -1,9 +1,7 @@
 
 # -*- coding: utf-8 -*-
-import datetime
 
 from django.views.generic.edit import FormView
-from django import forms
 from django.utils.translation import ugettext_lazy as _, ugettext
 from django.conf import settings
 from django.http import HttpResponseRedirect
@@ -19,13 +17,11 @@ from django.contrib.sites.models import Site
 
 from .bill_processing import data_processing
 from .bill_processing.billparser import TMobileCSVBillParser
+from .forms import BillUploadForm, PricesSelectForm
 
-
-class BillUploadForm(forms.Form):
-    bill = forms.FileField()
-    day = forms.DateField(initial=datetime.date.today())
 
 DATA_SK = 'dataInfo'
+PARSED_SK = 'parsedInfo'
 DAY_SK = 'day'
 
 
@@ -43,18 +39,54 @@ class UploadBillView(FormView):
 
     def form_valid(self, form):
         parser = TMobileCSVBillParser(form.cleaned_data['bill'])
-        try:
-            data = data_processing.calculate_charging(parser.parsed)
-        except data_processing.DataProcessingError, e:
-            return self.render_to_response({
-                'error': str(e)
-            })
 
         self.request.session[DAY_SK] = form.cleaned_data['day']
-        self.request.session[DATA_SK] = data
+        self.request.session[PARSED_SK] = parser.parsed
 
-        return HttpResponseRedirect(reverse('processForm'))
+        return HttpResponseRedirect(reverse('verifyForm'))
+    
+    
+class PriceTunningView(FormView):
+    """
+    Shows parsed operator invoice content in table along with
+    expected invoice price.
+    """
+    template_name = 'vpnadmin/dataProcessed.html'
+    form_class = PricesSelectForm
+    initial_prices = {'call': 1, 'sms': 1, 'mms': 3}
 
+    @method_decorator(login_required)
+    @method_decorator(user_passes_test(lambda u: u.is_superuser))
+    def dispatch(self, request, *args, **kwargs):
+        return FormView.dispatch(self, request, *args, **kwargs)
+    
+    def get_context_data(self, **kwargs):
+        if self.request.method == 'GET':
+            self.recalc(self.initial_prices)
+        ctx_data = FormView.get_context_data(self, **kwargs)
+        ctx_data.update(self.request.session.get(DATA_SK))
+        return ctx_data
+    
+    def get_initial(self):
+        return self.initial_prices
+
+    def form_valid(self, form):
+        try:
+            prices = {
+                'call': form.cleaned_data['call'],
+                'sms': form.cleaned_data['sms'],
+                'mms': form.cleaned_data['mms'],
+            }
+            self.recalc(prices)
+            ctx = self.get_context_data(form=form)
+        except data_processing.DataProcessingError, e:
+            ctx = {'error': str(e)}
+        return self.render_to_response(ctx)
+        
+    def recalc(self, prices):
+        parsed = self.request.session.get(PARSED_SK)
+        data, total = data_processing.calculate_charging(parsed, prices)
+        self.request.session[DATA_SK] = {'data': data, 'totals': total}
 
 class ProcessBillView(TemplateView):
     """
@@ -68,16 +100,8 @@ class ProcessBillView(TemplateView):
     def dispatch(self, request, *args, **kwargs):
         return TemplateView.dispatch(self, request, *args, **kwargs)
 
-    def get(self, request, *args, **kwargs):
-        data, total = request.session.get(DATA_SK)
-
-        return self.render_to_response({
-            'data': data,
-            'totals': total
-        })
-
     def post(self, request, *args, **kwargs):
-        data, _ = request.session.get(DATA_SK)
+        data = request.session.get(DATA_SK)['data']
         day = request.session.get(DAY_SK)
         
         invoices = self.process_charging(data, day)
@@ -87,6 +111,7 @@ class ProcessBillView(TemplateView):
         }
         del(request.session[DATA_SK])
         del(request.session[DAY_SK])
+        del(request.session[PARSED_SK])
         return self.render_to_response({'message': message})
     
     def process_charging(self, chargings, chargeday):
