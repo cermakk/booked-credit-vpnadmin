@@ -38,13 +38,11 @@ def calculate_price(phoneInfo, charging, prices):
     """
     calculate how much will given user pay for what.
     """
-    charging['totalprice'] = (charging['call'] * prices['call']) + \
+    charging['totalprice'] = (charging['call'] / 60 * prices['call']) + \
         charging['sms'] * prices['sms']
-    
-def item_prices(total):
-    return {'call': 1, 'sms': 1, 'mms': 3}
+    return charging['totalprice']
 
-def calculate_charging(parsed_data):
+def calculate_charging(parsed_data, prices):
     """
     Creates set of dicts {'service': price, ...}
     They already contains what is a user charged for in VPN manner.
@@ -55,6 +53,7 @@ def calculate_charging(parsed_data):
         'call': 0,
         'mms': 0,
         'sms': 0,
+        'price': 0
     }
     for num, pinfo in parsed_data.items():        
         cInfo, phoneInfo = _getInfos(num)
@@ -65,10 +64,8 @@ def calculate_charging(parsed_data):
         total['sms'] += charging['sms']
         total['mms'] += charging['mms']
 
-    # TODO: spocitej cenu minuty na zaklade total minutes
-    prices = item_prices(total)
     for (cInfo, phoneInfo), charging in data.items():
-        calculate_price(phoneInfo, charging, prices)
+        total['price'] += calculate_price(phoneInfo, charging, prices)
 
     return data, total
 
@@ -88,10 +85,10 @@ def _convertToTimeDelta(time):
     return datetime.timedelta(hours=int(parts[0]),
         minutes=int(parts[1]), seconds=int(parts[2]))
 
-
 def _convertToMinutes(time):
     return (time.days * 24 * 60) + (time.seconds / 60)
 
+# -----------------------------------------------------------------------------
 if __name__ == '__main__':
     from billparser import TMobileCSVBillParser
     with open('sumsheet_3673301813.csv', 'r') as f:

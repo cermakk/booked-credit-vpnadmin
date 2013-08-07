@@ -42,8 +42,17 @@ table { border: 1px solid black; font-size: 12px; }
 	<td>_</td>
 </tr>
 </table>
+<div>Total price is: {{ totals.price }}</div>
 
 <form action="" method="post" enctype="multipart/form-data">
+{% csrf_token %}
+<table>
+{{ form.as_table }}
+</table>
+<input type="submit" value="Recalc">
+</form>
+
+<form action="{% url "processForm" %}" method="post" enctype="multipart/form-data">
 {% csrf_token %}
 <input type="submit" value="OK">
 </form>
